@@ -1,0 +1,8 @@
+bank_fraud_df['City'] = bank_fraud_df[''].map({})
+# bank_fraud_df['Bank_Branch'] = bank_fraud_df[''].map({})
+# bank_fraud_df['Account_Type'] = bank_fraud_df[''].map({})
+# bank_fraud_df['Transaction_Type'] = bank_fraud_df[''].map({})
+# bank_fraud_df['Merchant_Category'] =  bank_fraud_df[''].map({})
+# bank_fraud_df['Transaction_Device'] = bank_fraud_df[''].map({})
+# bank_fraud_df['Transaction_Location'] = bank_fraud_df[''].map({})
+# bank_fraud_df['Device_Type'] = bank_fraud_df[''].map({})
