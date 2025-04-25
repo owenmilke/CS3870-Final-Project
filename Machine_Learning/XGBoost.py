@@ -2,7 +2,6 @@ import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, roc_curve, auc, precision_recall_curve, fbeta_score
-from sklearn.utils import resample
 from xgboost import XGBClassifier
 import matplotlib.pyplot as plt
 from imblearn.over_sampling import SMOTE
@@ -11,7 +10,7 @@ from sklearn.preprocessing import StandardScaler
 # Load in data
 xg_bank_fraud_df = pd.read_csv('Bank_Transaction_Fraud_Detection.csv')
 
-# ---------------------- XG Specific Cleaning ----------------------
+# ---------------------- XGB Data Cleaning ----------------------
 # Format time and date to be usable
 xg_bank_fraud_df['Transaction_Date'] = pd.to_datetime(xg_bank_fraud_df['Transaction_Date'], format='%d-%m-%Y', dayfirst=True)
 xg_bank_fraud_df['Transaction_Time'] = pd.to_datetime(xg_bank_fraud_df['Transaction_Time'], format='%H:%M:%S', errors='coerce')
@@ -41,7 +40,6 @@ xg_bank_fraud_df = pd.get_dummies(xg_bank_fraud_df, columns=['Age_Group'], prefi
 xg_bank_fraud_df['Account_Type'] = xg_bank_fraud_df['Account_Type'].map({
     'Savings' : 0, 'Business' : 1, 'Checking' : 2, 
 })
-
 
 # Transaction_Type
 xg_bank_fraud_df['Transaction_Type'] = xg_bank_fraud_df['Transaction_Type'].map({
@@ -87,24 +85,26 @@ xg_bank_fraud_df.drop(['Customer_Name', 'Transaction_ID', 'Transaction_Currency'
                        inplace=True)
 
 
-# ---------------------- Setup Data for Model ----------------------
+# ---------------------- Setup Data for modeling ----------------------
 # Is_Fraud is what we want to predict
 y = xg_bank_fraud_df['Is_Fraud']
 x = xg_bank_fraud_df.drop(['Is_Fraud'], axis=1)
 
-
+# Found StandardScaler to standardize all numeric data
 scaler = StandardScaler()
 X_scaled = scaler.fit_transform(x)
 
+# Used smote for resampling, giving new synthetic rows to help even out fraud/non-fraud
 smote = SMOTE(random_state=3870)
 X_resampled, y_resampled = smote.fit_resample(x, y)
 
 #Split data 80/20
 X_train, X_test, y_train, y_test = train_test_split(X_resampled, y_resampled, test_size=0.2, random_state=3870, stratify=y_resampled)
+
 # ---------------------- Make and fit the models ----------------------
-# Model
-final_model = XGBClassifier(
-    n_estimators=200,
+# Initialize model
+xg_model = XGBClassifier(
+    n_estimators=300,
     max_depth=12,
     learning_rate=0.1,
     eval_metric='logloss',
@@ -112,13 +112,14 @@ final_model = XGBClassifier(
     scale_pos_weight=1, 
     random_state=3870
 )
-#for i in range(1, 21):
-final_model.fit(X_train, y_train)
 
+# Fit model
+xg_model.fit(X_train, y_train)
 
 # Find the optimal threshold for precision/recall curve
-y_prob = final_model.predict_proba(X_test)[:, 1]
+y_prob = xg_model.predict_proba(X_test)[:, 1]
 
+# Plot ROC Curve
 fpr, tpr, roc_th = roc_curve(y_test, y_prob)
 roc_auc = auc(fpr, tpr)
 plt.figure()
@@ -130,6 +131,7 @@ plt.title("ROC Curve")
 plt.legend()
 plt.show()
 
+# Plot Precision/Recall curve
 precision, recall, threshold = precision_recall_curve(y_test, y_prob)
 plt.figure()
 plt.plot(recall, precision)
@@ -138,22 +140,15 @@ plt.ylabel("Precision")
 plt.title(" Curve")
 plt.show()
 
-valid = np.where(recall[:-1] >= 0.3)[0]
+valid = np.where(recall[:-1] >= 0.8)[0]
 best_idx = valid[np.argmax(precision[valid])]
-balanced_threshold = threshold[best_idx]
-
-
-
+threshold = threshold[best_idx]
 
 # Prediction w/ balanced_threshold
-y_pred_optimized = (y_prob >= balanced_threshold).astype(int)
-f2 = fbeta_score(y_test, y_pred_optimized, beta=2)
+y_pred_optimized = (y_prob >= threshold).astype(int)
 
 
 # ---------------------- RESULTS ----------------------
-# Evaluate with optimized threshold
-# print(f"Balanced Threshold: {balanced_threshold:.4f}")
-# print(f"F2 Score: {f2:.3f}\n")
 print("Classification Report:")
 print(classification_report(y_test, y_pred_optimized, zero_division=0))
 print("Confusion Matrix:")
@@ -162,6 +157,3 @@ print(pd.crosstab(y_test, y_pred_optimized,
                  colnames=['Predicted'], 
                  margins=True))
 
-# print("Feature importance: ")
-# print("\nTop Features:")
-# print(importance)
