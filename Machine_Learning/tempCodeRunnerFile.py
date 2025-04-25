@@ -1,6 +1,4 @@
-plt.plot(recall, precision)
-plt.xlabel("Recall")
-plt.ylabel("Precision")
-plt.title("Precision–Recall curve")
-plt.xlim(-0.001, 0.01)
-plt.show()
+
+# print("Feature importance: ")
+# print("\nTop Features:")
+# print(importance)
